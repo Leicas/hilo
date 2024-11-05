@@ -234,13 +234,17 @@ class Hilo:
         self.devices: Devices = Devices(api)
         self._websocket_reconnect_task: asyncio.Task | None = None
         self._update_task: asyncio.Task | None = None
-        self.invocations = {0: self.subscribe_to_location}
+        self.invocations = {
+            0: self.subscribe_to_location,
+            1: self.subscribe_to_challenge
+        }
+        #self.invocations = {0: self.subscribe_to_location}
         self.hq_plan_name = entry.options.get(CONF_HQ_PLAN_NAME, DEFAULT_HQ_PLAN_NAME)
         self.appreciation = entry.options.get(
             CONF_APPRECIATION_PHASE, DEFAULT_APPRECIATION_PHASE
         )
         self.pre_cold = entry.options.get(
-            CONF_PRE_COLD_PHASE, DEFAULT_PRE_COLD_PHASE  # this is new
+            CONF_PRE_COLD_PHASE, DEFAULT_PRE_COLD_PHASE
         )
         self.challenge_lock = entry.options.get(
             CONF_CHALLENGE_LOCK, DEFAULT_CHALLENGE_LOCK
@@ -302,6 +306,16 @@ class Hilo:
             new_devices = await self.devices.update_devicelist_from_signalr(
                 event.arguments[0]
             )
+        elif event.target == "ChallengeDetailsInitialValuesReceived":
+            #new message ic-dev21
+            LOG.debug(
+                "Received 'ChallengeDetailsInitialValuesReceived' message, not implemented yet."
+            )
+        elif event.target == "ChallengeConsumptionUpdatedValuesReceived":
+            #new message ic-dev21
+            LOG.debug(
+                "Received 'ChallengeConsumptionUpdatedValuesReceived' message, not implemented yet."
+            )
         elif event.target == "DeviceListUpdatedValuesReceived":
             # This message only contains display information, such as the Device's name (as set in the app), it's groupid, icon, etc.
             # Updating the device name causes issues in the integration, it detects it as a new device and creates a new entity.
@@ -346,6 +360,24 @@ class Hilo:
         LOG.debug(f"Subscribing to location {self.devices.location_id}")
         await self._api.websocket.async_invoke(
             [self.devices.location_id], "SubscribeToLocation", inv_id
+        )
+
+    @callback
+    async def subscribe_to_challenge(self, inv_id: int) -> None:
+        """Sends the JSON payload to receive updates from the location."""
+        LOG.debug(f"Subscribing to challenge {self.devices.location_id}")
+
+        # Define separate url ic-dev21
+        challenge_url = "https://api.hiloenergie.com/ChallengeHub/negotiate" # marche pas for now
+
+
+        # Call async_invoke with the additional `url` argument
+        await self._api.websocket.async_invoke(
+            arg=[{"eventId": inv_id, "locationId": self.devices.location_id}],
+            target="SubscribeToChallenge",
+            inv_id=inv_id,
+            url=challenge_url,  # Pass the alternate URL for this specific invocation
+            use_post= True,
         )
 
     @callback
